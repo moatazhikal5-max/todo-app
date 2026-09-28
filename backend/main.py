@@ -5,7 +5,7 @@ from bson.errors import InvalidId
 from dotenv import load_dotenv
 from fastapi import FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
 from pymongo import MongoClient, ReturnDocument, UpdateOne
 
 load_dotenv()
@@ -24,7 +24,12 @@ app.add_middleware(
 
 
 class TodoCreate(BaseModel):
-    title: str
+    title: str = Field(min_length=1, max_length=200)
+
+
+class TodoUpdate(BaseModel):
+    title: str | None = Field(default=None, min_length=1, max_length=200)
+    completed: bool | None = None
 
 
 class Todo(BaseModel):
@@ -79,10 +84,13 @@ def reorder_todos(data: TodoOrder):
 
 
 @app.patch("/todos/{todo_id}")
-def toggle_todo(todo_id: str) -> Todo:
+def update_todo(todo_id: str, data: TodoUpdate) -> Todo:
+    changes = data.model_dump(exclude_none=True)
+    if not changes:
+        raise HTTPException(status_code=400, detail="No fields to update")
     doc = collection.find_one_and_update(
         {"_id": parse_id(todo_id)},
-        [{"$set": {"completed": {"$not": "$completed"}}}],
+        {"$set": changes},
         return_document=ReturnDocument.AFTER,
     )
     if doc is None:

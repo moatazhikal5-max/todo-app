@@ -16,6 +16,8 @@ function App() {
   const [title, setTitle] = useState("");
   const [error, setError] = useState("");
   const [dragIndex, setDragIndex] = useState(null);
+  const [editingId, setEditingId] = useState(null);
+  const [editText, setEditText] = useState("");
 
   useEffect(() => {
     request("/todos")
@@ -38,12 +40,40 @@ function App() {
     }
   }
 
-  async function toggleTodo(id) {
+  async function updateTodo(id, changes) {
+    const updated = await request(`/todos/${id}`, {
+      method: "PATCH",
+      body: JSON.stringify(changes),
+    });
+    setTodos((current) => current.map((t) => (t.id === id ? updated : t)));
+  }
+
+  async function toggleTodo(todo) {
     try {
-      const updated = await request(`/todos/${id}`, { method: "PATCH" });
-      setTodos(todos.map((t) => (t.id === id ? updated : t)));
+      await updateTodo(todo.id, { completed: !todo.completed });
     } catch {
       setError("Could not update the to-do.");
+    }
+  }
+
+  function startEditing(todo) {
+    setEditingId(todo.id);
+    setEditText(todo.title);
+  }
+
+  function cancelEditing() {
+    setEditingId(null);
+    setEditText("");
+  }
+
+  async function saveEdit(todo) {
+    const newTitle = editText.trim();
+    cancelEditing();
+    if (!newTitle || newTitle === todo.title) return;
+    try {
+      await updateTodo(todo.id, { title: newTitle });
+    } catch {
+      setError("Could not rename the to-do.");
     }
   }
 
@@ -89,50 +119,76 @@ function App() {
           value={title}
           onChange={(e) => setTitle(e.target.value)}
           placeholder="What needs doing?"
+          maxLength={200}
         />
         <button type="submit">Add</button>
       </form>
 
       <ul>
-        {todos.map((todo, index) => (
-          <li
-            key={todo.id}
-            draggable
-            onDragStart={() => setDragIndex(index)}
-            onDragOver={(e) => e.preventDefault()}
-            onDrop={() => {
-              moveTodo(dragIndex, index);
-              setDragIndex(null);
-            }}
-            onDragEnd={() => setDragIndex(null)}
-            className={dragIndex === index ? "dragging" : ""}
-          >
-            <div className="left">
-              <span className="handle">⠿</span>
-              <span className="num">{index + 1}.</span>
-              <label>
+        {todos.map((todo, index) => {
+          const isEditing = editingId === todo.id;
+          return (
+            <li
+              key={todo.id}
+              draggable={!isEditing}
+              onDragStart={() => setDragIndex(index)}
+              onDragOver={(e) => e.preventDefault()}
+              onDrop={() => {
+                moveTodo(dragIndex, index);
+                setDragIndex(null);
+              }}
+              onDragEnd={() => setDragIndex(null)}
+              className={dragIndex === index ? "dragging" : ""}
+            >
+              <div className="left">
+                <span className="handle">⠿</span>
+                <span className="num">{index + 1}.</span>
                 <input
                   type="checkbox"
                   checked={todo.completed}
-                  onChange={() => toggleTodo(todo.id)}
+                  onChange={() => toggleTodo(todo)}
                 />
-                <span className={todo.completed ? "done" : ""}>{todo.title}</span>
-              </label>
-            </div>
-            <div className="actions">
-              <button onClick={() => moveTodo(index, index - 1)} disabled={index === 0}>
-                ↑
-              </button>
-              <button
-                onClick={() => moveTodo(index, index + 1)}
-                disabled={index === todos.length - 1}
-              >
-                ↓
-              </button>
-              <button onClick={() => deleteTodo(todo.id)}>Delete</button>
-            </div>
-          </li>
-        ))}
+                {isEditing ? (
+                  <input
+                    className="edit-input"
+                    value={editText}
+                    autoFocus
+                    maxLength={200}
+                    onChange={(e) => setEditText(e.target.value)}
+                    onBlur={() => saveEdit(todo)}
+                    onKeyDown={(e) => {
+                      if (e.key === "Enter") e.currentTarget.blur();
+                      if (e.key === "Escape") cancelEditing();
+                    }}
+                  />
+                ) : (
+                  <span
+                    className={todo.completed ? "title done" : "title"}
+                    onDoubleClick={() => startEditing(todo)}
+                    title="Double-click to edit"
+                  >
+                    {todo.title}
+                  </span>
+                )}
+              </div>
+              <div className="actions">
+                <button onClick={() => moveTodo(index, index - 1)} disabled={index === 0}>
+                  ↑
+                </button>
+                <button
+                  onClick={() => moveTodo(index, index + 1)}
+                  disabled={index === todos.length - 1}
+                >
+                  ↓
+                </button>
+                <button onClick={() => startEditing(todo)} disabled={isEditing}>
+                  Edit
+                </button>
+                <button onClick={() => deleteTodo(todo.id)}>Delete</button>
+              </div>
+            </li>
+          );
+        })}
       </ul>
 
       {todos.length === 0 && !error && (

@@ -76,3 +76,18 @@ li.dragging {
   display: flex;
   gap: 4px;
 }
+
+.left {
+  flex: 1;
+  min-width: 0;
+}
+
+.title {
+  cursor: text;
+}
+
+.edit-input {
+  flex: 1;
+  padding: 4px 6px;
+  font: inherit;
+}
