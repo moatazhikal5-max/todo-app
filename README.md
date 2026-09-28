@@ -4,7 +4,7 @@
 
 A full-stack to-do list built with **React**, **FastAPI**, and **MongoDB**. Create tasks, check them off, delete them, and drag them into any order. Everything is saved to a cloud database, so your list and its order persist across page refreshes and server restarts.
 
-![image.png](image.png)
+![To-Do App screenshot](docs/demo.png)
 
 ## Features
 
